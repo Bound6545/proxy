@@ -5,39 +5,27 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
 
-// Import the entire Scramjet module
-import ScramjetModule from "@mercuryworkshop/scramjet";
-
-// The Scramjet constructor is likely at .default
-const Scramjet = ScramjetModule.default || ScramjetModule;
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer();
 
-// --- 1. SETUP ENGINES (Scramjet + Bare) ---
-const bare = createBareServer("/bare/");
-const sj = new Scramjet({
-    prefix: "/scramjet/",
-    config: { 
-        prefix: "/scramjet/", 
-        bare: true,
-        // Kill security headers that cause the "Sad Face" / Refused to connect error
-        rewrite: {
-            headers: (headers) => {
-                delete headers['x-frame-options'];
-                delete headers['content-security-policy'];
-                delete headers['content-security-policy-report-only'];
-                return headers;
-            }
-        }
-    }
-});
+// Get the scramjet path from the package
+const ScramjetModule = await import("@mercuryworkshop/scramjet");
+const scramjetPath = ScramjetModule.default?.scramjetPath || ScramjetModule.scramjetPath;
 
-// --- 2. SERVE PUBLIC FOLDER ---
+console.log('📦 Scramjet path:', scramjetPath);
+
+// --- 1. SETUP BARE SERVER ---
+const bare = createBareServer("/bare/");
+
+// --- 2. SERVE SCRAMJET FILES ---
+// Scramjet is CLIENT-SIDE - we just need to serve its files
+app.use("/scramjet/", express.static(scramjetPath));
+
+// --- 3. SERVE PUBLIC FOLDER ---
 app.use(express.static(join(__dirname, "public")));
 
-/* --- 3. CUSTOM SOUNDCLOUD LOGIC --- */
+/* --- 4. MUSIC LOGIC --- */
 let clientId = null;
 
 async function getClientId() {
@@ -57,27 +45,18 @@ async function getClientId() {
             }
         }
     } catch (e) {
-        console.error('Failed to get Client ID:', e.message);
         return 'a3e059563d7fd3372b49b37f00a00bcf'; 
     }
 }
 
-app.get('/api/music/search', async (req, res) => {
+async function resolveUrl(url, cid) {
     try {
-        const { q } = req.query;
-        if (!q) return res.status(400).json({ error: 'Query required' });
-        const cid = await getClientId();
-        let apiTarget = q.startsWith('http') 
-            ? `https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(q)}&client_id=${cid}`
-            : `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(q)}&client_id=${cid}&limit=20`;
-
-        const response = await axios.get(apiTarget);
-        let rawTracks = response.data.collection || (Array.isArray(response.data) ? response.data : [response.data]);
-        res.json(rawTracks.map(mapTrack).filter(t => t !== null));
-    } catch (error) {
-        res.status(500).json({ error: 'Search failed' });
-    }
-});
+        const page = await axios.get(url);
+        const iosUrlMatch = page.data.match(/content="soundcloud:\/\/([a-z]+):(\d+)"/);
+        if (iosUrlMatch) return { type: iosUrlMatch[1], id: iosUrlMatch[2] };
+        return null;
+    } catch (e) { return null; }
+}
 
 function mapTrack(t) {
     if (!t || !t.title) return null;
@@ -91,35 +70,71 @@ function mapTrack(t) {
     };
 }
 
+app.get('/api/music/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.status(400).json({ error: 'Query required' });
+        const cid = await getClientId();
+        let apiTarget = '';
+        if (q.startsWith('http')) {
+            const resolved = await resolveUrl(q, cid);
+            if (resolved && resolved.type === 'users') {
+                apiTarget = `https://api-v2.soundcloud.com/users/${resolved.id}/tracks?client_id=${cid}&limit=50`;
+            } else if (resolved && resolved.type === 'playlists') {
+                const playlistData = await axios.get(`https://api-v2.soundcloud.com/playlists/${resolved.id}?client_id=${cid}`);
+                const tracks = playlistData.data.tracks.map(mapTrack);
+                return res.json(tracks);
+            } else { return res.json([]); }
+        } else {
+            apiTarget = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(q)}&client_id=${cid}&limit=20`;
+        }
+        const response = await axios.get(apiTarget);
+        let rawTracks = response.data.collection || (Array.isArray(response.data) ? response.data : []);
+        res.json(rawTracks.map(mapTrack).filter(t => t !== null));
+    } catch (error) { 
+        console.error("Search Error:", error.message);
+        res.status(500).json({ error: 'Search failed' }); 
+    }
+});
+
 app.get('/api/music/stream', async (req, res) => {
     try {
         const url = req.query.url;
+        if (!url) return res.status(400).json({ error: 'No url provided' });
         const cid = await getClientId();
         const resolve = await axios.get(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${cid}`);
-        const transcoding = resolve.data.media.transcodings.find(t => t.format.protocol === 'progressive');
+        const track = resolve.data;
+        const transcoding = track.media.transcodings.find(t => t.format.protocol === 'progressive');
+        if (!transcoding) return res.status(404).json({ error: 'No progressive stream found' });
         const streamUrlReq = await axios.get(`${transcoding.url}?client_id=${cid}`);
         const stream = await axios({ url: streamUrlReq.data.url, method: 'GET', responseType: 'stream' });
         res.setHeader('Content-Type', 'audio/mpeg');
         stream.data.pipe(res);
-    } catch (error) {
-        res.status(500).json({ error: 'Stream failed' });
+    } catch (error) { 
+        console.error('Stream Error:', error.message);
+        res.status(500).json({ error: 'Stream failed' }); 
     }
 });
 
-// --- 4. ROUTER ENGINE ---
+// --- 5. ROUTER ---
 server.on("request", (req, res) => {
-    if (bare.shouldRoute(req)) bare.routeRequest(req, res);
-    else if (sj.shouldRoute(req)) sj.routeRequest(req, res);
-    else app(req, res);
+    if (bare.shouldRoute(req)) {
+        bare.routeRequest(req, res);
+    } else {
+        app(req, res);
+    }
 });
 
 server.on("upgrade", (req, socket, head) => {
-    if (bare.shouldRoute(req)) bare.routeUpgrade(req, socket, head);
-    else if (sj.shouldRoute(req)) sj.routeUpgrade(req, socket, head);
-    else socket.end();
+    if (bare.shouldRoute(req)) {
+        bare.routeUpgrade(req, socket, head);
+    } else {
+        socket.end();
+    }
 });
 
-// --- 5. START SERVER ---
+// --- 6. START SERVER ---
 server.listen(8080, "0.0.0.0", () => {
     console.log("🚀 Server running on Port 8080");
+    console.log("📁 Serving Scramjet from:", scramjetPath);
 });
