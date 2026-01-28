@@ -1,23 +1,28 @@
 import { createBareServer } from "@tomphttp/bare-server-node";
+import express from "express";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import express from "express";
 import axios from "axios";
-
-// --- THE NEW FIX FOR NODE V22 ---
-// Instead of a normal import, we require the package specifically 
-// to find the Scramjet class inside it.
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const ScramjetModule = require("@mercuryworkshop/scramjet");
-const Scramjet = ScramjetModule.Scramjet || ScramjetModule;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer();
 
-// --- 1. SETUP ENGINES ---
+// --- 1. THE DYNAMIC CONSTRUCTOR FIX ---
+let Scramjet;
+try {
+    const ScramjetModule = await import("@mercuryworkshop/scramjet");
+    // This logic digs through every possible export layer
+    Scramjet = ScramjetModule.Scramjet || 
+               ScramjetModule.default?.Scramjet || 
+               ScramjetModule.default || 
+               ScramjetModule;
+} catch (e) {
+    console.error("Failed to load Scramjet module:", e);
+}
+
+// --- 2. SETUP ENGINES ---
 const bare = createBareServer("/bare/");
 const sj = new Scramjet({
     prefix: "/scramjet/",
@@ -35,10 +40,10 @@ const sj = new Scramjet({
     }
 });
 
-// --- 2. SERVE PUBLIC FOLDER ---
+// --- 3. SERVE PUBLIC FOLDER ---
 app.use(express.static(join(__dirname, "public")));
 
-/* --- 3. SOUNDCLOUD LOGIC --- */
+/* --- 4. SOUNDCLOUD LOGIC --- */
 let clientId = null;
 async function getClientId() {
     if (clientId) return clientId;
@@ -66,7 +71,7 @@ app.get('/api/music/search', async (req, res) => {
     } catch (e) { res.status(500).send(); }
 });
 
-// --- 4. ROUTER ---
+// --- 5. ROUTER ---
 server.on("request", (req, res) => {
     if (req.url.startsWith('/api/music')) {
         app(req, res);
@@ -86,5 +91,5 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(process.env.PORT || 8080, "0.0.0.0", () => {
-    console.log("🚀 Server Live on Port 8080");
+    console.log("🚀 Server Live - Scramjet Constructor Found");
 });
