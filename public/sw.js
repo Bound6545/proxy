@@ -1,6 +1,7 @@
 // Scramjet Service Worker - Force correct configuration
 importScripts('/scramjet/scramjet.codecs.js');
 importScripts('/scramjet/scramjet.config.js');
+importScripts('/scramjet/scramjet.bundle.js'); // IMPORTANT: provides __scramjet$bundle
 importScripts('/scramjet/scramjet.worker.js');
 
 // CRITICAL: Override the prefix AFTER imports
@@ -25,7 +26,7 @@ self.addEventListener('activate', (event) => {
 // Fetch event - handle all requests under /service/
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    
+
     // Only handle requests under /service/ scope
     if (url.pathname.startsWith('/service/')) {
         console.log('🌐 Scramjet handling:', url.pathname);
