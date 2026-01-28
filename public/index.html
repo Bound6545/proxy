@@ -13,6 +13,13 @@
     <script src="/scramjet/scramjet.codecs.js"></script>
     <script src="/scramjet/scramjet.config.js"></script>
     <script src="/scramjet/scramjet.bundle.js"></script>
+    
+    <!-- Load BareMux and configure it to use our /bare/ server -->
+    <script src="/baremux/bare.cjs"></script>
+    <script>
+        // Configure BareMux to use our Node bare server at /bare/
+        BareMux.SetTransport("BareMod.BareClient", window.location.origin + "/bare/");
+    </script>
 </head>
 <body>
 
