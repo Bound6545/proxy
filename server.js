@@ -6,53 +6,35 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
 
-// --- DEBUG: This will show in your Railway/PM2 logs ---
-console.log('--- SCRAMJET DEBUG START ---');
-console.log('ScramjetPkg Type:', typeof ScramjetPkg);
-console.log('ScramjetPkg Keys:', Object.keys(ScramjetPkg));
-if (ScramjetPkg.default) console.log('Default Keys:', Object.keys(ScramjetPkg.default));
-console.log('--- SCRAMJET DEBUG END ---');
-
-// --- THE CONSTRUCTOR FIX ---
-// This checks every possible place the constructor could be hiding
-const Scramjet = ScramjetPkg.Scramjet || 
-                 ScramjetPkg.default?.Scramjet || 
-                 ScramjetPkg.default || 
-                 ScramjetPkg;
-
+// Constructor Fix for Node v22
+const Scramjet = ScramjetPkg.Scramjet || ScramjetPkg.default?.Scramjet || ScramjetPkg;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer();
 
-// --- 1. SETUP ENGINES (Scramjet + Bare) ---
+// --- 1. SCRAMJET CONFIG (Fixed for TikTok/Discord) ---
 const bare = createBareServer("/bare/");
-
-let sj;
-try {
-    sj = new Scramjet({
-        prefix: "/scramjet/",
-        config: { 
-            prefix: "/scramjet/", 
-            bare: true,
-            rewrite: {
-                headers: (headers) => {
-                    delete headers['x-frame-options'];
-                    delete headers['content-security-policy'];
-                    delete headers['content-security-policy-report-only'];
-                    return headers;
-                }
+const sj = new Scramjet({
+    prefix: "/scramjet/",
+    config: { 
+        prefix: "/scramjet/", 
+        bare: true,
+        serviceWorker: true,
+        rewrite: {
+            headers: (headers) => {
+                // Delete headers that block iframes (TikTok Fix)
+                delete headers['x-frame-options'];
+                delete headers['content-security-policy'];
+                delete headers['content-security-policy-report-only'];
+                return headers;
             }
         }
-    });
-    console.log("✅ Scramjet initialized successfully.");
-} catch (err) {
-    console.error("❌ CRITICAL: Scramjet failed to initialize. Error:", err.message);
-}
+    }
+});
 
-// --- 2. SERVE PUBLIC FOLDER ---
 app.use(express.static(join(__dirname, "public")));
 
-/* --- 3. RESTORED SOUNDCLOUD LOGIC --- */
+/* --- 2. MUSIC API --- */
 let clientId = null;
 async function getClientId() {
     if (clientId) return clientId;
@@ -70,32 +52,47 @@ async function getClientId() {
 
 app.get('/api/music/search', async (req, res) => {
     try {
-        const { q } = req.query;
-        if (!q) return res.status(400).json({ error: 'Query required' });
         const cid = await getClientId();
-        const response = await axios.get(`https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(q)}&client_id=${cid}&limit=20`);
+        const response = await axios.get(`https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(req.query.q)}&client_id=${cid}&limit=20`);
         res.json(response.data.collection.map(t => ({
-            id: t.id, title: t.title, artist: t.user?.username || "Unknown", 
+            id: t.id, title: t.title, artist: t.user.username, 
             thumbnail: t.artwork_url?.replace('large', 't500x500'),
             duration: Math.floor(t.duration / 1000), url: t.permalink_url
         })));
-    } catch (e) { res.status(500).json({ error: 'Search failed' }); }
+    } catch (e) { res.status(500).send(); }
 });
 
-// --- 4. ROUTER ENGINE ---
+app.get('/api/music/stream', async (req, res) => {
+    try {
+        const cid = await getClientId();
+        const resolve = await axios.get(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(req.query.url)}&client_id=${cid}`);
+        const transcoding = resolve.data.media.transcodings.find(t => t.format.protocol === 'progressive');
+        const streamUrlReq = await axios.get(`${transcoding.url}?client_id=${cid}`);
+        const stream = await axios({ url: streamUrlReq.data.url, method: 'GET', responseType: 'stream' });
+        res.setHeader('Content-Type', 'audio/mpeg');
+        stream.data.pipe(res);
+    } catch (e) { res.status(500).send(); }
+});
+
+// --- 3. ROUTER ---
 server.on("request", (req, res) => {
-    if (bare.shouldRoute(req)) bare.routeRequest(req, res);
-    else if (sj && sj.shouldRoute(req)) sj.routeRequest(req, res);
-    else app(req, res);
+    if (req.url.startsWith('/api/music')) {
+        app(req, res);
+    } else if (bare.shouldRoute(req)) {
+        bare.routeRequest(req, res);
+    } else if (sj.shouldRoute(req)) {
+        sj.routeRequest(req, res);
+    } else {
+        app(req, res);
+    }
 });
 
 server.on("upgrade", (req, socket, head) => {
     if (bare.shouldRoute(req)) bare.routeUpgrade(req, socket, head);
-    else if (sj && sj.shouldRoute(req)) sj.routeUpgrade(req, socket, head);
+    else if (sj.shouldRoute(req)) sj.routeUpgrade(req, socket, head);
     else socket.end();
 });
 
-// --- 5. START SERVER ---
-server.listen(8080, "0.0.0.0", () => {
-    console.log("🚀 Server running at http://0.0.0.0:8080");
+server.listen(process.env.PORT || 8080, "0.0.0.0", () => {
+    console.log("🚀 Proxy Online");
 });
