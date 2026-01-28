@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ebooks | Learning playground</title>
+    <meta name="description" content="Educational resources and tools.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="css/style.css">
+    
+    <script src="/scramjet/scramjet.controller.js"></script>
+</head>
+<body>
+
+    <div id="custom-cursor"></div>
+    <div id="cursor-trail"></div>
+    <div class="stars" id="star-container"></div>
+    
+    <div id="load-notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="load-notif-text">Loading...</span>
+    </div>
+
+    <div id="update-modal">
+        <div class="update-box">
+            <button class="up-close-x" onclick="window.closeUpdateLog()">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="up-header">
+                <div class="up-title-group">
+                    <span class="up-title" id="up-title">Backend Update</span>
+                    <span class="up-badge" id="up-ver">v3.0.0</span>
+                </div>
+                <div class="up-date" id="up-date">Jan 27, 2026</div>
+            </div>
+            <ul class="up-list" id="up-list"></ul>
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <button class="nav-btn active" onclick="window.setView('home', this)"><i class="fas fa-search"></i> Proxy</button>
+        <button class="nav-btn" onclick="window.setView('apps', this)"><i class="fas fa-th"></i> Apps</button>
+        <button class="nav-btn" onclick="window.setView('games', this)"><i class="fas fa-gamepad"></i> Games</button>
+        <button class="nav-btn" onclick="window.toggleMusic()"><i class="fas fa-music"></i> Music</button>
+        <button class="nav-btn" onclick="window.setView('dmca', this)"><i class="fas fa-gavel"></i> DMCA</button>
+        <button class="nav-btn" onclick="window.setView('settings', this)"><i class="fas fa-cog"></i></button>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 5px;"></div>
+        <button class="nav-btn panic-btn" onclick="window.triggerPanic()" title="Panic! (Key: ])"><i class="fas fa-sign-out-alt"></i> Panic</button>
+    </nav>
+
+    <div id="music-player">
+        <div class="player-header" id="player-drag-handle">
+            <div class="player-title"><i class="fas fa-headphones-alt" style="color:#1db954;"></i> Cloud Player</div>
+            <button class="player-close" onclick="window.toggleMusic()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="player-content">
+            <input type="text" class="music-search" id="music-search-bar" placeholder="Search Song (Enter)...">
+            <div id="music-results" style="flex:1; overflow-y: auto; margin-top:10px; display:flex; flex-direction:column; gap:5px;">
+                <div style="text-align:center; color:#666; margin-top:20px;">Search for a song...</div>
+            </div>
+            <div id="audio-controls" style="margin-top:10px; background: rgba(255,255,255,0.05); padding:10px; border-radius:10px; display:none;">
+                <div id="now-playing" style="font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:5px; color:#fff;"></div>
+                <audio id="native-audio-player" controls style="width:100%; height:30px;"></audio>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <div id="home" class="view active">
+            <div class="logo-text">hunters proxy</div>
+            <div class="sub-text" id="rotator">initializing...</div>
+            <div class="network-text">A site apart of infamous network.</div>
+            
+            <div class="network-links-wrapper">
+                <a href="https://infamous-education.hotelconsuladoinn.com/" target="_blank" class="network-link">Visit Infamous Network</a>
+                <a href="https://discord.gg/7cKrfMEz2A" target="_blank" class="network-link">Join Infamous Network</a>
+            </div>
+            
+            <div class="search-container">
+                <i class="fas fa-globe search-icon"></i>
+                <input type="text" class="search-bar" id="proxy-input" placeholder="Search or enter a link...">
+            </div>
+            
+            <div class="shortcuts-grid">
+                <div class="shortcut-item" onclick="window.openGame('https://youtube.com', 'YouTube')"><i class="fab fa-youtube"></i><div class="shortcut-label">YouTube</div></div>
+                <div class="shortcut-item" onclick="window.openGame('https://discord.com', 'Discord')"><i class="fab fa-discord"></i><div class="shortcut-label">Discord</div></div>
+                <div class="shortcut-item" onclick="window.openGame('https://tiktok.com', 'TikTok')"><i class="fab fa-tiktok"></i><div class="shortcut-label">TikTok</div></div>
+                <div class="shortcut-item" onclick="window.openGame('https://google.com', 'Google')"><i class="fab fa-google"></i><div class="shortcut-label">Google</div></div>
+                <div class="shortcut-item" onclick="window.openGame('https://play.geforcenow.com', 'GeForce Now')"><i class="fas fa-bolt"></i><div class="shortcut-label">GeForce Now</div></div>
+                <div class="shortcut-item" onclick="window.openGame('https://now.gg/', 'now.gg')"><i class="fas fa-gamepad"></i><div class="shortcut-label">now.gg</div></div>
+            </div>
+        </div>
+
+        <div id="apps" class="view">
+            <div class="games-wrapper">
+                <h2 style="margin-bottom: 30px; color: #fff; text-align:center; font-weight:300;">Applications</h2>
+                <div class="games-grid" id="apps-grid-container"></div>
+            </div>
+        </div>
+
+        <div id="games" class="view">
+            <div class="games-wrapper">
+                <h2 style="margin-bottom: 30px; color: #fff; text-align:center; font-weight:300;">Game Library</h2>
+                <div class="game-search-wrapper">
+                    <input type="text" id="game-search" class="game-search" placeholder="Search for a game..." oninput="window.filterGameLibrary()">
+                </div>
+                <div class="games-wrapper-inner" id="games-render-area"></div>
+            </div>
+        </div>
+
+        <div id="active-game-view" class="view">
+            <div class="tab-bar-container">
+                <div id="tabs-list" style="display:flex;"></div>
+                <button class="new-tab-btn" onclick="window.askNewTab()"><i class="fas fa-plus"></i></button>
+            </div>
+            <div class="game-toolbar">
+                <div class="nav-controls">
+                    <button class="browser-nav-btn" onclick="window.navBack()"><i class="fas fa-arrow-left"></i></button>
+                    <button class="browser-nav-btn" onclick="window.navForward()"><i class="fas fa-arrow-right"></i></button>
+                    <button class="browser-nav-btn" onclick="window.navReload()"><i class="fas fa-redo"></i></button>
+                    <button class="browser-nav-btn" onclick="window.closeGame()"><i class="fas fa-home"></i></button>
+                </div>
+                <input type="text" class="browser-address-bar" id="browser-address-bar" placeholder="Search or type a URL...">
+                <button class="nav-btn" onclick="window.popOut()"><i class="fas fa-external-link-alt"></i></button>
+                <button class="nav-btn" onclick="window.toggleFullscreen()"><i class="fas fa-expand"></i></button>
+                <button class="nav-btn panic-btn" onclick="window.triggerPanic()"><i class="fas fa-exclamation-circle"></i></button>
+            </div>
+            <div class="iframe-wrapper" id="iframe-wrapper">
+                <div id="loading-overlay">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Loading content...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="dmca" class="view">
+            <div class="settings-panel" style="width: 800px; text-align: left;">
+                <h2 style="text-align: center;"><i class="fas fa-gavel"></i> DMCA Takedown Request</h2>
+                <p style="color: #ccc; text-align: center; margin-bottom: 20px;">
+                    Respecting intellectual property is our priority. If you own the rights to content hosted here, follow these steps to request removal.
+                </p>
+                <div class="step-grid">
+                    <div class="step-card">
+                        <h3><i class="fas fa-search"></i> Step 1: Identify</h3>
+                        <p>Locate the exact URL(s) on our site containing the infringing material. General descriptions like "my game" are not sufficient.</p>
+                    </div>
+                    <div class="step-card">
+                        <h3><i class="fas fa-file-contract"></i> Step 2: Proof</h3>
+                        <p>Gather evidence of your ownership, such as:</p>
+                        <ul>
+                            <li>Link to original store page (Steam, Itch.io)</li>
+                            <li>Copyright registration number</li>
+                        </ul>
+                    </div>
+                    <div class="step-card">
+                        <h3><i class="fas fa-pen-fancy"></i> Step 3: Draft</h3>
+                        <p>Write an email including:</p>
+                        <ul>
+                            <li>Physical or electronic signature</li>
+                            <li>"I have a good faith belief that use of the material..."</li>
+                            <li>Your contact information</li>
+                        </ul>
+                    </div>
+                    <div class="step-card">
+                        <h3><i class="fas fa-paper-plane"></i> Step 4: Submit</h3>
+                        <p>Send your compliant DMCA notice to:</p>
+                        <div class="contact-box">mr.eggg62@gmail.com</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="settings" class="view">
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <h2>Settings</h2>
+                </div>
+                <div class="settings-grid">
+                    <div class="setting-group setting-full">
+                        <span class="setting-label">User ID</span>
+                        <div class="uid-display">
+                            <span id="user-uid">LOADING...</span>
+                            <button class="nav-btn" style="padding: 2px 8px; font-size:0.8rem; background:transparent; border:none;" onclick="window.copyUid()"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <span class="setting-label">Engine</span>
+                        <div class="btn-row">
+                            <button class="engine-btn" onclick="window.setSearchEngine('brave')" id="btn-brave">Brave</button>
+                            <button class="engine-btn" onclick="window.setSearchEngine('bing')" id="btn-bing">Bing</button>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <span class="setting-label">Tools</span>
+                         <button class="nav-btn-settings" onclick="window.openAboutBlank()"><i class="fas fa-user-secret"></i> Cloak</button>
+                         <button class="nav-btn-settings" onclick="window.exportSave()"><i class="fas fa-download"></i> Save</button>
+                    </div>
+                    <div class="setting-group setting-full">
+                        <span class="setting-label">Panic Redirect</span>
+                        <select id="panic-preset" class="panic-select" onchange="window.updatePanicSettings()">
+                            <option value="classroom">Google Classroom</option>
+                            <option value="drive">Google Drive</option>
+                            <option value="forms">Google Forms</option>
+                            <option value="custom">Custom URL...</option>
+                        </select>
+                        <input type="text" id="panic-custom-input" class="panic-input" placeholder="https://..." oninput="window.saveCustomPanic()">
+                    </div>
+                    <div class="setting-group">
+                        <span class="setting-label">Visuals</span>
+                        <button class="nav-btn-settings" onclick="window.toggleParticles()"><i class="fas fa-star"></i> Stars</button>
+                        <button class="nav-btn-settings" onclick="window.toggleCursor()"><i class="fas fa-mouse-pointer"></i> Cursor</button>
+                    </div>
+                    <div class="setting-group setting-full">
+                        <span class="setting-label">Danger Zone</span>
+                        <div style="display:flex; gap:10px;">
+                             <button class="nav-btn-settings" onclick="window.importSave()" style="flex:1;"><i class="fas fa-upload"></i> Load</button>
+                             <button class="nav-btn-settings reset-btn" onclick="if(confirm('Reset all data? This cannot be undone.')){localStorage.clear(); location.reload();}" style="flex:1;"><i class="fas fa-trash"></i> Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
