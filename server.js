@@ -5,13 +5,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
 
-// Alternative import - try importing the whole module then accessing
-import * as ScramjetModule from "@mercuryworkshop/scramjet";
+// Import the entire Scramjet module
+import ScramjetModule from "@mercuryworkshop/scramjet";
 
-// Try to get the Scramjet class from various possible locations
-const Scramjet = ScramjetModule.Scramjet || 
-                 ScramjetModule.default || 
-                 ScramjetModule;
+// The Scramjet constructor is likely at .default
+const Scramjet = ScramjetModule.default || ScramjetModule;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
