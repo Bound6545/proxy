@@ -1,29 +1,49 @@
-// Service Worker - Simplified Scramjet without Bare-Mux
-importScripts('/scramjet/scramjet.codecs.js');
-importScripts('/scramjet/scramjet.config.js');
-importScripts('/scramjet/scramjet.worker.js');
+// Service Worker - Properly initialize Scramjet
+importScripts('/scramjet/scramjet.all.js');
 
-// Force correct prefix
-self.__scramjet$config.prefix = '/service/';
+console.log('🔧 Loading Scramjet...');
 
-console.log('🔧 Scramjet SW loaded');
+// Get Scramjet from the bundle
+const scramjetBundle = $scramjetLoadWorker();
+console.log('📦 Scramjet bundle:', scramjetBundle ? 'loaded' : 'failed');
 
-// Initialize Scramjet
-const scramjet = new ScramjetServiceWorker(self.__scramjet$config);
+// Initialize with correct config
+const config = {
+    prefix: "/service/",
+    codec: "plain",
+    files: {
+        wasm: "/scramjet/scramjet.wasm",
+        worker: "/scramjet/scramjet.worker.js", 
+        client: "/scramjet/scramjet.client.js",
+        sync: "/scramjet/scramjet.sync.js"
+    }
+};
+
+const scramjet = new scramjetBundle.ScramjetServiceWorker(config);
 
 self.addEventListener('install', (event) => {
-    console.log('✅ Service Worker installed');
+    console.log('✅ SW installed');
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('✅ Service Worker activated');
+    console.log('✅ SW activated');
     event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {
-    if (scramjet.route(event)) {
-        console.log('🌐 Scramjet handling:', new URL(event.request.url).pathname);
-        event.respondWith(scramjet.fetch(event));
+    if (event.request.url.includes('/service/')) {
+        console.log('🌐 Handling:', event.request.url);
+        event.respondWith(
+            (async () => {
+                try {
+                    await scramjet.loadConfig();
+                    return await scramjet.fetch(event);
+                } catch (err) {
+                    console.error('Scramjet error:', err);
+                    return new Response('Proxy Error: ' + err.message, { status: 500 });
+                }
+            })()
+        );
     }
 });
