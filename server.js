@@ -1,11 +1,13 @@
 import { createBareServer } from "@tomphttp/bare-server-node";
 import ScramjetPkg from "@mercuryworkshop/scramjet";
-const { Scramjet } = ScramjetPkg;
 import express from "express";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
+
+// --- CRITICAL FIX: Pin down the Scramjet constructor ---
+const Scramjet = ScramjetPkg.Scramjet || ScramjetPkg.default?.Scramjet || ScramjetPkg;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -18,7 +20,7 @@ const sj = new Scramjet({
     config: { 
         prefix: "/scramjet/", 
         bare: true,
-        // CRITICAL FIX: Delete security headers to prevent "Refused to Connect"
+        // Kill security headers that cause the "Sad Face" / Refused to connect error
         rewrite: {
             headers: (headers) => {
                 delete headers['x-frame-options'];
@@ -33,7 +35,7 @@ const sj = new Scramjet({
 // --- 2. SERVE PUBLIC FOLDER ---
 app.use(express.static(join(__dirname, "public")));
 
-/* --- 3. RESTORED SOUNDCLOUD LOGIC --- */
+/* --- 3. CUSTOM SOUNDCLOUD LOGIC --- */
 let clientId = null;
 
 async function getClientId() {
@@ -56,15 +58,6 @@ async function getClientId() {
         console.error('Failed to get Client ID:', e.message);
         return 'a3e059563d7fd3372b49b37f00a00bcf'; 
     }
-}
-
-async function resolveUrl(url, cid) {
-    try {
-        const page = await axios.get(url);
-        const iosUrlMatch = page.data.match(/content="soundcloud:\/\/([a-z]+):(\d+)"/);
-        if (iosUrlMatch) return { type: iosUrlMatch[1], id: iosUrlMatch[2] };
-        return null;
-    } catch (e) { return null; }
 }
 
 app.get('/api/music/search', async (req, res) => {
@@ -111,7 +104,7 @@ app.get('/api/music/stream', async (req, res) => {
     }
 });
 
-// --- 4. ROUTER LOGIC ---
+// --- 4. ROUTER ENGINE ---
 server.on("request", (req, res) => {
     if (bare.shouldRoute(req)) bare.routeRequest(req, res);
     else if (sj.shouldRoute(req)) sj.routeRequest(req, res);
@@ -126,5 +119,5 @@ server.on("upgrade", (req, socket, head) => {
 
 // --- 5. START SERVER ---
 server.listen(8080, "0.0.0.0", () => {
-    console.log("🚀 Server running at http://0.0.0.0:8080");
+    console.log("🚀 Server running on Port 8080");
 });
