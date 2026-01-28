@@ -1,10 +1,17 @@
 import { createBareServer } from "@tomphttp/bare-server-node";
-import { Scramjet } from "@mercuryworkshop/scramjet";
 import express from "express";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import axios from "axios";
+
+// Alternative import - try importing the whole module then accessing
+import * as ScramjetModule from "@mercuryworkshop/scramjet";
+
+// Try to get the Scramjet class from various possible locations
+const Scramjet = ScramjetModule.Scramjet || 
+                 ScramjetModule.default || 
+                 ScramjetModule;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
