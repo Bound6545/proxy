@@ -1,28 +1,31 @@
 import { createBareServer } from "@tomphttp/bare-server-node";
-import ScramjetPkg from "@mercuryworkshop/scramjet";
-import express from "express";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import express from "express";
 import axios from "axios";
 
-// Constructor Fix for Node v22
-const Scramjet = ScramjetPkg.Scramjet || ScramjetPkg.default?.Scramjet || ScramjetPkg;
+// --- THE NEW FIX FOR NODE V22 ---
+// Instead of a normal import, we require the package specifically 
+// to find the Scramjet class inside it.
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const ScramjetModule = require("@mercuryworkshop/scramjet");
+const Scramjet = ScramjetModule.Scramjet || ScramjetModule;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer();
 
-// --- 1. SCRAMJET CONFIG (Fixed for TikTok/Discord) ---
+// --- 1. SETUP ENGINES ---
 const bare = createBareServer("/bare/");
 const sj = new Scramjet({
     prefix: "/scramjet/",
     config: { 
         prefix: "/scramjet/", 
         bare: true,
-        serviceWorker: true,
         rewrite: {
             headers: (headers) => {
-                // Delete headers that block iframes (TikTok Fix)
                 delete headers['x-frame-options'];
                 delete headers['content-security-policy'];
                 delete headers['content-security-policy-report-only'];
@@ -32,9 +35,10 @@ const sj = new Scramjet({
     }
 });
 
+// --- 2. SERVE PUBLIC FOLDER ---
 app.use(express.static(join(__dirname, "public")));
 
-/* --- 2. MUSIC API --- */
+/* --- 3. SOUNDCLOUD LOGIC --- */
 let clientId = null;
 async function getClientId() {
     if (clientId) return clientId;
@@ -62,19 +66,7 @@ app.get('/api/music/search', async (req, res) => {
     } catch (e) { res.status(500).send(); }
 });
 
-app.get('/api/music/stream', async (req, res) => {
-    try {
-        const cid = await getClientId();
-        const resolve = await axios.get(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(req.query.url)}&client_id=${cid}`);
-        const transcoding = resolve.data.media.transcodings.find(t => t.format.protocol === 'progressive');
-        const streamUrlReq = await axios.get(`${transcoding.url}?client_id=${cid}`);
-        const stream = await axios({ url: streamUrlReq.data.url, method: 'GET', responseType: 'stream' });
-        res.setHeader('Content-Type', 'audio/mpeg');
-        stream.data.pipe(res);
-    } catch (e) { res.status(500).send(); }
-});
-
-// --- 3. ROUTER ---
+// --- 4. ROUTER ---
 server.on("request", (req, res) => {
     if (req.url.startsWith('/api/music')) {
         app(req, res);
@@ -94,5 +86,5 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(process.env.PORT || 8080, "0.0.0.0", () => {
-    console.log("🚀 Proxy Online");
+    console.log("🚀 Server Live on Port 8080");
 });
