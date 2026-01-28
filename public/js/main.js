@@ -13,7 +13,7 @@ self.scramjet = {
     bare: '/bare/',
     config: '/scramjet/scramjet.config.js',
     bundle: '/scramjet/scramjet.bundle.js',
-    worker: '/scramjet/scramjet.worker.js',
+    worker: '/sw.js',
     client: '/scramjet/scramjet.client.js',
     codecs: '/scramjet/scramjet.codecs.js'
 };
@@ -21,7 +21,7 @@ self.scramjet = {
 async function registerSW() {
     if ('serviceWorker' in navigator) {
         try {
-            await navigator.serviceWorker.register('/scramjet/scramjet.worker.js', { scope: '/service/' });
+            await navigator.serviceWorker.register('/sw.js', { scope: '/service/' });
             console.log("✅ Scramjet Active");
         } catch (err) { console.error("❌ SW Fail:", err); }
     }
@@ -109,10 +109,15 @@ function getProxyUrl(input) {
         }
     }
     
-    if(self.scramjet && self.scramjet.encodeUrl) {
-        return self.scramjet.prefix + self.scramjet.encodeUrl(target);
+    // Use Scramjet's codec to encode the URL
+    if (self.__scramjet$codecs && self.__scramjet$config) {
+        const codec = self.__scramjet$codecs.plain;
+        const encodedUrl = codec.encode(target);
+        return self.__scramjet$config.prefix + encodedUrl;
     }
-    return target; 
+    
+    // Fallback: just encode and prefix
+    return '/service/' + encodeURIComponent(target);
 }
 
 // --- APPS LIST ---
