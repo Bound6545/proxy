@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ebooks |Learning playground</title>
+    <title>Ebooks | Learning playground</title>
     <meta name="description" content="Educational resources and tools.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -14,11 +14,21 @@
     <script src="/scramjet/scramjet.config.js"></script>
     <script src="/scramjet/scramjet.bundle.js"></script>
     
-    <!-- Load BareMux and configure it to use our /bare/ server -->
+    <!-- Load BareMux -->
     <script src="/baremux/bare.cjs"></script>
+    <!-- Load Bare-as-module3 (BareMod) -->
+    <script src="/baremod/index.js"></script>
     <script>
-        // Configure BareMux to use our Node bare server at /bare/
-        BareMux.SetTransport("BareMod.BareClient", window.location.origin + "/bare/");
+        // Wait for both to load, then configure transport
+        (function() {
+            if (typeof BareMux === 'undefined' || typeof BareMod === 'undefined') {
+                setTimeout(arguments.callee, 50);
+                return;
+            }
+            // Configure BareMux to use our Node bare server at /bare/
+            BareMux.SetTransport("BareMod.BareClient", window.location.origin + "/bare/");
+            console.log('✅ BareMux transport configured');
+        })();
     </script>
 </head>
 <body>
