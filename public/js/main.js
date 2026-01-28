@@ -110,10 +110,10 @@ function getProxyUrl(input) {
     }
     
     // Use Scramjet's codec to encode the URL
-    if (self.__scramjet$codecs && self.__scramjet$config) {
+    if (self.__scramjet$codecs) {
         const codec = self.__scramjet$codecs.plain;
         const encodedUrl = codec.encode(target);
-        return self.__scramjet$config.prefix + encodedUrl;
+        return '/service/' + encodedUrl;  // Hardcoded correct prefix
     }
     
     // Fallback: just encode and prefix
